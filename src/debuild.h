@@ -61,10 +61,11 @@ void deb_init();
 void deb_panic(const char* message);
 
 bool deb_cmd_append_impl(Deb_Cmd*, size_t, ...);
-bool deb_cmd_execute(Deb_Cmd*);
+bool deb_cmd_execute(const Deb_Cmd*);
+void deb_cmd_free(Deb_Cmd*);
 
 bool deb_dir_exists(const char*);
-char* deb_dir_list(const char*);
+bool deb_dir_list(const char*, Deb_StringView*);
 
 bool deb_file_exists(const char*);
 bool deb_file_copy(const char*, const char*);
@@ -195,7 +196,7 @@ bool deb_cmd_append_impl(Deb_Cmd* cmd, size_t args_count, ...)
     return true;
 }
 
-bool deb_cmd_execute(Deb_Cmd* cmd)
+bool deb_cmd_execute(const Deb_Cmd* cmd)
 {
     if (cmd == NULL)
     {
@@ -232,6 +233,16 @@ bool deb_cmd_execute(Deb_Cmd* cmd)
     return true;
 }
 
+void deb_cmd_free(Deb_Cmd* cmd)
+{
+    if (cmd->args != NULL)
+        free(cmd->args);
+
+    cmd->args = NULL;
+    cmd->args_capacity = 0;
+    cmd->args_count = 0;
+}
+
 bool deb_dir_exists(const char* path)
 {
     DWORD attrs = GetFileAttributesA(path);
@@ -243,12 +254,12 @@ bool deb_dir_exists(const char* path)
 }
 
 /* Example:
-*   char* buf;
+*   Deb_StringView buf;
 *
-*   while (buf = deb_dir_list("C:\\Example"))
-*       printf("%s\n", buf);
+*   while (deb_dir_list("C:\\Example", &buf))
+*       printf("%s\n", buf.data);
 */
-char* deb_dir_list(const char* path)
+bool deb_dir_list(const char* path, Deb_StringView* out)
 {
     static WIN32_FIND_DATAA find_data;
     static HANDLE find_handle = INVALID_HANDLE_VALUE;
@@ -269,12 +280,16 @@ char* deb_dir_list(const char* path)
         {
             deb_log(Deb_LogType_Error, "Invalid path: %s", path);
             free(modified_path);
-            return NULL;
+            return false;
         }
     }
 
     if (FindNextFileA(find_handle, &find_data) != 0)
-        return find_data.cFileName; // a filename lives until the next execution of this line
+    {
+        out->length = strlen(find_data.cFileName);
+        out->data = find_data.cFileName;
+        return true; // a filename lives until the next execution of this line
+    }
 
 end:
     if (modified_path != NULL)
@@ -283,7 +298,7 @@ end:
     FindClose(find_handle);
     find_handle = INVALID_HANDLE_VALUE;
 
-    return NULL;
+    return false;
 }
 
 bool deb_file_exists(const char* path)

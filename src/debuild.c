@@ -12,18 +12,19 @@ int main()
     //deb_file_copy("../target/debuild.exe", "../target/debuild_old.exe");
     //deb_file_copy("../target/debuild_new.exe", "../target/debuild.exe");
 
-    char* buf;
+    Deb_StringView buf;
 
-    while (buf = deb_dir_list("../../"))
-    {
-        printf(deb_file_exists(buf) ? "file: " : "dir: ");
-        printf("%s\n", buf);
-    }
+    while (deb_dir_list("../../", &buf))
+        printf("%s\n", buf.data);
+
+    //printf("%d %d %d\n", deb_file_exists("build.bat"), deb_dir_exists("../target/debuild.exe"), deb_dir_exists("../../src"));
 
     if (deb_cmd_execute(&cmd))
         deb_log(Deb_LogType_Info, "Build success");
     else
         deb_log(Deb_LogType_Error, "Build failed");
+
+    deb_cmd_free(&cmd);
 
     return 0;
 }
